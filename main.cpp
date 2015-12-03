@@ -1,9 +1,10 @@
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <regex>
-#include <string>
-#include <iomanip>
 #include <sstream>
+#include <string>
+#include <unistd.h>
 
 using namespace std;
 
@@ -42,6 +43,21 @@ class ParseUrl {
     return answer;
   }
 
+  string MakeFileUrl(const string& lectureNum) {
+    string answer =
+        "http://download.eastbaymedia-drm.com.edgesuite.net/anon.eastbaymedia-drm/courses/";
+    answer += courseId_ + "/" + mediaType_ + "/" + filename(lectureNum);
+    return answer;
+  }
+
+  string MakeParams(const string& lectureNum) {
+
+    string answer = "userid=" + userId_ + "&orderid=" + orderId_ +
+        "&courseid=" +
+        courseId_ + "&FName=" + fileBase(lectureNum);
+    return answer;
+  }
+
   string filename(const string& lectureNum) {
     return fileBase(lectureNum) + "." + mediaType_;
   }
@@ -59,7 +75,8 @@ class ParseUrl {
     return "TGC_" + courseId_ + "_Lect" + lectureNum + "_" + directoryName_;
   }
 
-  static string parseParameter(const string& parameter, const string&parameters) {
+  static string parseParameter(const string& parameter, const string&
+  parameters) {
     string value;
     regex paramRegex(parameter + R"(=(.*?)&.*)");
     smatch matches;
@@ -96,17 +113,30 @@ int main(int argc, char* argv[]) {
     exit (1);
   }
 
+  exitValue = chdir(directory.c_str());
+  if (exitValue != 0) {
+    cout << "Bad chdir: " << exitValue << endl;
+    exit(1);
+  }
+
   for (int i = 1; i <= parseUrl.lastLecture(); ++i) {
     stringstream ss;
     ss << setw(2) << setfill('0') << i;
     string lectureNum = ss.str();
     cout << parseUrl.MakeUrl(lectureNum) << endl;
-    string filename = directory + "/" + parseUrl.filename(lectureNum);
-    string wgetCommand = "wget -O \"" + filename +
-        "\" '" + parseUrl.MakeUrl(lectureNum) + "'";
-    exitValue = std::system(wgetCommand.c_str());
-    if (exitValue != 0) {
-      cerr << "Bad: " << exitValue << endl;
+    //string filename = directory + "/" + parseUrl.filename(lectureNum);
+//    string wgetCommand = "wget --timestamping --directory-prefix=\"" +
+//        directory + "\"" + " --post-data='" + parseUrl.MakeParams(lectureNum)
+//        + "'"
+//        + " " + parseUrl.MakeFileUrl(lectureNum) + "";
+
+    string curlCommand = "curl -C - -G -O -d '" + parseUrl.MakeParams(lectureNum)
+    + "' " + parseUrl.MakeFileUrl(lectureNum);
+
+    cout << curlCommand << endl;
+    exitValue = std::system(curlCommand.c_str());
+    if (exitValue != 0 && exitValue != 256) {
+      cerr << "wget Bad: " << exitValue << endl;
       exit (1);
     }
 
